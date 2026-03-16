@@ -46,7 +46,7 @@ async function registerRemoteProvider(provider: ModelProvider) {
       header: h.header,
       value: h.value,
     })),
-    models: provider.models.map(e => e.id)
+    models: provider.models.map((e) => e.id),
   }
 
   try {
@@ -66,7 +66,11 @@ const syncRemoteProviders = () => {
   const currentActive = new Set<string>()
 
   providers.forEach((provider) => {
-    if (provider.active && provider.provider !== 'llamacpp' && provider.api_key) {
+    if (
+      provider.active &&
+      provider.provider !== 'llamacpp' &&
+      provider.api_key
+    ) {
       registerRemoteProvider(provider)
       currentActive.add(provider.provider)
     }
@@ -83,12 +87,11 @@ const syncRemoteProviders = () => {
 }
 
 export function DataProvider() {
-  const { setProviders, getProviderByName } =
-    useModelProvider()
+  const { setProviders, getProviderByName } = useModelProvider()
 
   const { checkForUpdate } = useAppUpdater()
   const { setServers, setSettings } = useMCPServers()
-  const { setAssistants, initializeWithLastUsed } = useAssistant()
+  const { setAssistants } = useAssistant()
   const { setThreads } = useThreads()
   const navigate = useNavigate()
   const serviceHub = useServiceHub()
@@ -112,16 +115,19 @@ export function DataProvider() {
 
   useEffect(() => {
     console.log('Initializing DataProvider...')
-    serviceHub.providers().getProviders().then((providers) => {
-      setProviders(providers)
-      // Register active remote providers with the backend
-      providers.forEach((provider) => {
-        if (provider.active) {
-          registerRemoteProvider(provider)
-          registeredProviderNames.add(provider.provider)
-        }
+    serviceHub
+      .providers()
+      .getProviders()
+      .then((providers) => {
+        setProviders(providers)
+        // Register active remote providers with the backend
+        providers.forEach((provider) => {
+          if (provider.active) {
+            registerRemoteProvider(provider)
+            registeredProviderNames.add(provider.provider)
+          }
+        })
       })
-    })
     serviceHub
       .mcp()
       .getMCPConfig()
@@ -136,7 +142,8 @@ export function DataProvider() {
         // Only update assistants if we have valid data
         if (data && Array.isArray(data) && data.length > 0) {
           setAssistants(data as unknown as Assistant[])
-          initializeWithLastUsed()
+        } else {
+          setAssistants(null)
         }
       })
       .catch((error) => {
@@ -203,10 +210,13 @@ export function DataProvider() {
 
   useEffect(() => {
     events.on(AppEvent.onModelImported, () => {
-      serviceHub.providers().getProviders().then((providers) => {
-        setProviders(providers)
-        syncRemoteProviders()
-      })
+      serviceHub
+        .providers()
+        .getProviders()
+        .then((providers) => {
+          setProviders(providers)
+          syncRemoteProviders()
+        })
     })
   }, [serviceHub, setProviders])
 
@@ -229,16 +239,21 @@ export function DataProvider() {
           // Start the last models that were running with the server
           if (lastServerModels.length > 0) {
             await Promise.allSettled(
-              lastServerModels.map(async ({ model, provider: providerName }) => {
-                const provider = getProviderByName(providerName)
-                if (!provider) return
-                try {
-                  await serviceHub.models().startModel(provider, model, true)
-                  console.log(`Auto-started last server model: ${model}`)
-                } catch (err) {
-                  console.warn(`Failed to auto-start last server model ${model}:`, err)
+              lastServerModels.map(
+                async ({ model, provider: providerName }) => {
+                  const provider = getProviderByName(providerName)
+                  if (!provider) return
+                  try {
+                    await serviceHub.models().startModel(provider, model, true)
+                    console.log(`Auto-started last server model: ${model}`)
+                  } catch (err) {
+                    console.warn(
+                      `Failed to auto-start last server model ${model}:`,
+                      err
+                    )
+                  }
                 }
-              })
+              )
             )
           }
 
@@ -260,11 +275,16 @@ export function DataProvider() {
               }
               setServerStatus('running')
               // Persist whichever models are actually running so next startup can restore them
-              const activeModels = await serviceHub.models().getActiveModels().catch(() => [] as string[])
+              const activeModels = await serviceHub
+                .models()
+                .getActiveModels()
+                .catch(() => [] as string[])
               if (activeModels.length > 0) {
                 const allProviders = useModelProvider.getState().providers
                 const serverModels = activeModels.flatMap((id) => {
-                  const p = allProviders.find((p) => p?.models?.some((m: { id: string }) => m.id === id))
+                  const p = allProviders.find((p) =>
+                    p?.models?.some((m: { id: string }) => m.id === id)
+                  )
                   return p ? [{ model: id, provider: p.provider }] : []
                 })
                 if (serverModels.length > 0) setLastServerModels(serverModels)
